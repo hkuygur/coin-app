@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="row">
+
+
+    
+
+        <div class="input-group mb-3 col-5">
+            <div class="input-group-prepend">
+                <span class="input-group-text" id="inputGroup-sizing-default">Coin Type</span>
+            </div>
+            <input type="text" id="coin_type" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default">
+        </div>
+      
+        <div class="input-group mb-3 col-5">
+            <div class="input-group-prepend">
+            <span class="input-group-text" id="inputGroup-sizing-default">Number</span>
+            </div>
+            <input type="number" id= "coin_value" class="form-control" aria-label="Default" aria-describedby="inputGroup-sizing-default">
+        </div>
+      
+        <button type="button" class="btn btn-primary col-2" onclick="buyCoin()">Buy</button>
+    </div>
+         <div class="row col-8">
+                <h5 class="col-2">Total: </h5>
+                <h4 class="col-2" id ="total">0</h4>
+                <h5 class="col-2" >Bucket: </h5>
+                <h4 class="col-2" id ="bucket">1000000</h4>
+
+        </div>
+    
+    
+         <table class="table">
+        <thead>
+          <tr>
+          
+            <th scope="col">Coin</th>
+            <th scope="col">Quantity</th>
+            <th scope="col">Price</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody id="table_body">
+      
+        </tbody>
+      </table>
+      <button type="button" class="btn btn-primary col-2" onclick="showTable()">Show History</button>
+      <table id="history_table" style="display:none" class="table">
+        <thead>
+          <tr>
+          
+            <th scope="col">Coin</th>
+            <th scope="col">Quantity</th>
+            <th scope="col">Price</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="table_body_history">
+      
+        </tbody>
+      </table>
+
+
+    
+</body>
+</html>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.1.1/jquery.min.js"></script>
+<script>
+     function showTable(){
+         if($('#history_table').is(':visible')){
+            $("#history_table").hide()
+         } 
+         else {
+            $("#history_table").show()
+         }
+       
+
+     }
+    document.cookie = 'Access-Control-Allow-Origin= *; SameSite=None; Secure';
+    var last_process = [];
+    var wallet = [];
+    var id=0 ;
+    var total = 0
+    var bucket = 1000000
+    function  buyCoin(){ 
+        let coin_value = document.getElementById("coin_value").value
+        let coin_type = document.getElementById("coin_type").value
+            if(coin_type == "" || coin_value.length == 0){
+                alert("Inputs can not be empty!")
+                return false 
+            }
+        console.log(coin_value, coin_type)
+        $.ajax('https://rest.coinapi.io/v1/exchangerate/'+coin_type+'/USD',   // request url
+        {
+            type: "GET",
+            headers: { "X-CoinAPI-Key" : "2AB81F30-2612-4550-A7A9-7133313AE493",
+            },
+
+
+            success: function (data) {     // success callback function
+                var tmp_data = [];
+                tmp_data['id'] = id
+               tmp_data['base'] = data.asset_id_base;
+               tmp_data['quote'] = data.asset_id_quote;
+               tmp_data['quantity'] = coin_value;
+               tmp_data['rate'] = data.rate
+               wallet.push(tmp_data);
+               tmp_data['action'] = 'buy'; 
+            last_process.push(tmp_data);
+            $("#table_body").append("<tr id="+id+"><td>"+coin_type+"</td><td>"+coin_value+"</td><td>"+coin_value*data.rate+"</td><td><button onclick ='sellCoin(this)'>Sell</button></td></tr>")
+            $("#table_body_history").append("<tr><td>"+coin_type+"</td><td>"+coin_value+"</td><td>"+coin_value*data.rate+"</td><td>Buy</td></tr>")
+            wallet.forEach(element => { 
+                total = total+element.rate*element.quantity
+            });
+                $('#total').text(total);
+               let last_bucket = $('#bucket').text();
+               last_bucket = parseInt(last_bucket, 10);
+               bucket = last_bucket-tmp_data['rate']* tmp_data['quantity'];
+               $('#bucket').text(bucket);
+               
+               
+                id = id+1
+            
+            }
+        });
+
+    }
+        function sellCoin(element){
+              var row = $(element).parent().parent();
+              var id= row.attr('id');
+
+       
+
+
+
+
+
+
+
+            
+            console.log(id)
+            wallet.forEach(function(item, index, object) {
+                console.log(item)
+                if (item.id == id) {
+                    $.ajax('https://rest.coinapi.io/v1/exchangerate/'+item.base+'/USD',   // request url
+                    {
+                        type: "GET",
+                        headers: { "X-CoinAPI-Key" : "2AB81F30-2612-4550-A7A9-7133313AE493",
+                        },
+
+
+                        success: function (data) {     // success callback function
+                            let tmp_item = [];
+                            
+                            tmp_item['id'] = item.id
+                            tmp_item['base'] = item.base;
+                            tmp_item['quote'] = item.quote;
+                            tmp_item['quantity'] = item.quantity;
+                            tmp_item['rate'] = data.rate
+                            tmp_item['action']= "sell";
+                            last_process.push(tmp_item);
+                            object.splice(index, 1);
+                            console.log(item.rate,data.rate);
+                            if(item.rate>data.rate) {
+
+
+                                $("#table_body_history").append("<tr style='background-color:red'><td>"+ tmp_item['base']+"</td><td>"+tmp_item['quantity']+"</td><td>"+ data.rate*tmp_item['quantity']+"</td><td>Sell</td></tr>")
+
+                            }
+                            else {
+                                $("#table_body_history").append("<tr style='background-color:green'><td>"+ tmp_item['base']+"</td><td>"+tmp_item['quantity']+"</td><td>"+ data.rate*tmp_item['quantity']+"</td><td>Sell</td></tr>")
+
+
+                            }
+                             
+                             let last_bucket = $('#bucket').text();
+                             last_bucket = parseInt(last_bucket, 10);
+                             bucket = last_bucket+tmp_item['rate']*tmp_item['quantity'];
+                             $('#bucket').text(bucket);
+                            row.remove();
+                           
+                            return 0;
+                        }
+                    });
+                    
+                }
+            });
+            wallet.forEach(element => { 
+                                total = total-element.rate*element.quantity
+                              });
+                              $('#total').text(total);
+                             
+
+                              
+
+
+    }
+
+
+</script>
+
+
+
+
